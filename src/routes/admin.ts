@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express'
-import { authenticate, authorize } from '../middleware/auth.js'
+import { authenticate } from '../middleware/auth.js'
+import { authorize } from '../middleware/auth.middleware.js'
 import { UserRole, UserStatus } from '../types/user.js'
 import { userService } from '../services/user.service.js'
 import { forceRevokeUserSessions } from '../services/session.js'
 import { createAuditLog, getAuditLogById, listAuditLogs } from '../lib/audit-logs.js'
-import { cancelVaultById } from './vaults.js'
+import { cancelVaultById } from '../services/vaultStore.js'
 
 export const adminRouter = Router()
 
