@@ -1,18 +1,11 @@
-import { createRequire } from 'node:module'
+import { createRequire } from 'module'
 import knex, { Knex } from 'knex'
 
 const require = createRequire(import.meta.url)
-const knexConfig = require('../../knexfile.cjs') as Knex.Config
+const config = require('../../knexfile.cjs')
 
-/**
- * Knex database connection instance
- */
-export const db: Knex = knex(knexConfig)
+export const db: Knex = knex(config)
 
-/**
- * Close database connection
- * Should be called during graceful shutdown
- */
 export async function closeDatabase(): Promise<void> {
   await db.destroy()
 }
