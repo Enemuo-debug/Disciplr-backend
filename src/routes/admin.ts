@@ -11,7 +11,7 @@ export const adminRouter = Router()
 
 // Apply authentication to all admin routes
 adminRouter.use(authenticate)
-adminRouter.use(authorize([UserRole.ADMIN]))
+adminRouter.use(requireAdmin)
 
 /**
  * Force-logout a user (Admin only) - Preserve Issue #46 logic
