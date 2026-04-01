@@ -1,6 +1,6 @@
 import { Knex } from 'knex'
 import { ParsedEvent, ProcessorConfig, VaultEventPayload, MilestoneEventPayload, ValidationEventPayload } from '../types/horizonSync.js'
-import { retryWithBackoff, DEFAULT_RETRY_CONFIG } from '../utils/retry.js'
+import { retryWithBackoff, isRetryable } from '../utils/retry.js'
 import { createAuditLog } from '../lib/audit-logs.js'
 import { IdempotencyService } from './idempotency.js'
 
@@ -74,8 +74,9 @@ export class EventProcessor {
         eventId: event.eventId
       }
     } catch (error) {
-      retryCount = this.config.maxRetries
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      const retryable = error instanceof Error ? isRetryable(error) : false
+      retryCount = retryable ? this.config.maxRetries : 0
       const processingDurationMs = Date.now() - startTime
 
       // Create audit log for failed processing
@@ -94,8 +95,10 @@ export class EventProcessor {
         }
       })
 
-      // Move to dead letter queue if retries exhausted
-      await this.moveToDeadLetterQueue(event, errorMessage, retryCount)
+      // Only retryable failures that exhaust retries should be dead-lettered.
+      if (retryable) {
+        await this.moveToDeadLetterQueue(event, errorMessage, retryCount)
+      }
 
       return {
         success: false,

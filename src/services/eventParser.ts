@@ -7,6 +7,8 @@ import {
   ValidationEventPayload 
 } from '../types/horizonSync.js'
 
+type DecodedPayload = Record<string, unknown>
+
 /**
  * Result of parsing a Horizon event
  */
@@ -37,6 +39,52 @@ export interface HorizonEvent {
   }
   inSuccessfulContractCall: boolean
   txHash: string
+}
+
+function decodePayloadRecord(xdrData: string): DecodedPayload | null {
+  const candidates = [xdrData]
+
+  try {
+    const decoded = Buffer.from(xdrData, 'base64').toString('utf8')
+    if (decoded && decoded !== xdrData) {
+      candidates.push(decoded)
+    }
+  } catch {
+    // Ignore invalid base64 and fall back to direct JSON parsing.
+  }
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as unknown
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as DecodedPayload
+      }
+    } catch {
+      // Try the next candidate.
+    }
+  }
+
+  return null
+}
+
+function readStringField(record: DecodedPayload, key: string): string | undefined {
+  const value = record[key]
+  return typeof value === 'string' ? value : undefined
+}
+
+function readDateField(record: DecodedPayload, key: string): Date | undefined {
+  const value = record[key]
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : value
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed
+  }
+
+  return undefined
 }
 
 /**
@@ -148,17 +196,20 @@ function parseVaultPayload(
           console.error(`Vault created validation error: ${createdError}`)
           return null
         }
-        return payload
-      
-      case 'vault_completed':
-      case 'vault_failed':
-      case 'vault_cancelled':
-        payload = {
-          vaultId,
-          status: eventType.replace('vault_', '') as 'completed' | 'failed' | 'cancelled'
-        }
-        
-        // Validate vault status payload
+      }
+
+      return payload
+
+    case 'vault_completed':
+    case 'vault_failed':
+    case 'vault_cancelled':
+      payload = {
+        vaultId: readStringField(decoded, 'vaultId') ?? '',
+        status: ((readStringField(decoded, 'status') ??
+          eventType.replace('vault_', '')) as VaultEventPayload['status'])
+      }
+
+      {
         const statusError = validateVaultStatusPayload(payload)
         if (statusError) {
           console.error(`Vault status validation error: ${statusError}`)
@@ -248,6 +299,23 @@ function parseMilestonePayload(xdrData: string): MilestoneEventPayload | null {
     console.error('Error parsing milestone payload XDR:', error)
     return null
   }
+
+  const payload: MilestoneEventPayload = {
+    milestoneId: readStringField(decoded, 'milestoneId') ?? '',
+    vaultId: readStringField(decoded, 'vaultId') ?? '',
+    title: readStringField(decoded, 'title') ?? '',
+    description: readStringField(decoded, 'description') ?? '',
+    targetAmount: readStringField(decoded, 'targetAmount') ?? '',
+    deadline: readDateField(decoded, 'deadline') ?? new Date('invalid')
+  }
+
+  const error = validateMilestonePayload(payload)
+  if (error) {
+    console.error(`Milestone validation error: ${error}`)
+    return null
+  }
+
+  return payload
 }
 
 /**
@@ -323,6 +391,8 @@ function parseValidationPayload(xdrData: string): ValidationEventPayload | null 
     console.error('Error parsing validation payload XDR:', error)
     return null
   }
+
+  return payload
 }
 
 /**
