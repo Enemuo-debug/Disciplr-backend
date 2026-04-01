@@ -1,5 +1,5 @@
-import { Request, Response, NextFunction } from "express";
-import { UserRole } from "@prisma/client";
+import { Request, Response, NextFunction } from 'express'
+import { UserRole } from '../types/user.js'
 
 type RBACOptions = {
   allow: UserRole[];
