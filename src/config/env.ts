@@ -43,8 +43,9 @@ export const envSchema = z.object({
   SERVICE_NAME: z.string().default('disciplr-backend'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
 
-  // ── CORS ────────────────────────────────────────────────────────────
+  // ── CORS & Body Limits ──────────────────────────────────────────────
   CORS_ORIGINS: z.string().optional(),
+  MAX_JSON_BODY_SIZE: z.string().default('500kb'),
 
   // ── Auth / secrets ──────────────────────────────────────────────────
   JWT_SECRET: z.string().default('change-me-in-production'),

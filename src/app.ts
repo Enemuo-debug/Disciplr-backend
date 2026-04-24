@@ -143,7 +143,7 @@ const corsOptions: cors.CorsOptions = {
 }
 
 app.use(cors(corsOptions))
-app.use(express.json())
+app.use(express.json({ limit: config.maxJsonBodySize }))
 
 app.use((_req, res, next) => {
   res.setHeader('X-Timezone', 'UTC')
